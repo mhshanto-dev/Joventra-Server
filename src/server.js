@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import recruiterRoutes from './routes/recruiter.routes.js';
 import seekerRoutes from './routes/seeker.routes.js';
+import searchRoutes from './routes/search.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,6 +70,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/recruiter', recruiterRoutes);
 app.use('/api/seeker', seekerRoutes);
+app.use('/api/search', searchRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
