@@ -8,6 +8,9 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { ENV } from './config/env.js';
 import { connectDB } from './config/db.js';
+import { apiLimiter, authLimiter } from './middlewares/rateLimiter.middleware.js';
+import { errorHandler } from './middlewares/error.middleware.js';
+
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import companyRoutes from './routes/company.routes.js';
@@ -42,6 +45,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Apply general rate limiter
+app.use('/api', apiLimiter);
+
 // Stripe webhook requires raw body, handle standard json for others
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/payments/webhook') {
@@ -60,7 +66,7 @@ if (ENV.NODE_ENV !== 'test') {
 app.use('/uploads', express.static(uploadDir));
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/jobs', jobRoutes);
@@ -80,6 +86,17 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// 404 handler for unknown routes
+app.all('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Cannot find ${req.originalUrl} on this server!`,
+  });
+});
+
+// Centralized error handling middleware
+app.use(errorHandler);
 
 // App launcher
 const PORT = ENV.PORT;
