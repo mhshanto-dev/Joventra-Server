@@ -5,6 +5,7 @@ import { SeekerProfile } from '../models/SeekerProfile.model.js';
 import { Subscription } from '../models/Subscription.model.js';
 import { SEEKER_PLANS } from '../constants/plans.js';
 import { APPLICATION_STATUS, JOB_STATUS } from '../constants/statuses.js';
+import { sendApplicationConfirmationEmail, sendStatusUpdateEmail } from '../services/email.service.js';
 
 export const applyToJob = async (req, res) => {
   try {
@@ -27,7 +28,6 @@ export const applyToJob = async (req, res) => {
       });
     }
 
-    // Check if already applied
     const existingApplication = await Application.findOne({ seekerId, jobId });
     if (existingApplication) {
       return res.status(400).json({
@@ -36,7 +36,6 @@ export const applyToJob = async (req, res) => {
       });
     }
 
-    // Check seeker subscription monthly application limit
     let subscription = await Subscription.findOne({ userId: seekerId });
     if (!subscription) {
       subscription = await Subscription.create({
@@ -46,7 +45,6 @@ export const applyToJob = async (req, res) => {
       });
     }
 
-    // Check monthly reset
     const now = new Date();
     const lastReset = new Date(subscription.lastApplicationReset || subscription.createdAt);
     const isDifferentMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
@@ -68,7 +66,6 @@ export const applyToJob = async (req, res) => {
       });
     }
 
-    // Resolve resume URL
     let finalResumeUrl = resumeUrl;
     if (!finalResumeUrl) {
       const profile = await SeekerProfile.findOne({ userId: seekerId });
@@ -84,9 +81,15 @@ export const applyToJob = async (req, res) => {
       status: APPLICATION_STATUS.APPLIED,
     });
 
-    // Increment counts
     await Job.findByIdAndUpdate(jobId, { $inc: { applicationCount: 1 } });
     await Subscription.findByIdAndUpdate(subscription._id, { $inc: { applicationsUsedThisMonth: 1 } });
+
+    // Send email asynchronously
+    sendApplicationConfirmationEmail({
+      seeker: req.user,
+      job,
+      company: job.companyId,
+    }).catch(err => console.error('Application confirmation email error:', err));
 
     return res.status(201).json({
       success: true,
@@ -151,7 +154,6 @@ export const getJobApplicants = async (req, res) => {
     const { jobId } = req.params;
     const recruiterId = req.user._id;
 
-    // Verify job belongs to this recruiter
     const job = await Job.findOne({ _id: jobId, recruiterId });
     if (!job) {
       return res.status(404).json({
@@ -210,7 +212,6 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    // Verify recruiter ownership of this job
     if (application.jobId.recruiterId.toString() !== recruiterId.toString()) {
       return res.status(403).json({
         success: false,
@@ -220,6 +221,16 @@ export const updateApplicationStatus = async (req, res) => {
 
     application.status = status;
     await application.save();
+
+    // Trigger status update email to seeker
+    if (application.seekerId?.email) {
+      sendStatusUpdateEmail({
+        seeker: application.seekerId,
+        job: application.jobId,
+        company: application.companyId,
+        status,
+      }).catch(err => console.error('Status update email error:', err));
+    }
 
     return res.status(200).json({
       success: true,

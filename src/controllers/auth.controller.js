@@ -6,6 +6,7 @@ import { Subscription } from '../models/Subscription.model.js';
 import { Company } from '../models/Company.model.js';
 import { ROLES } from '../constants/roles.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/token.js';
+import { sendWelcomeEmail } from '../services/email.service.js';
 
 export const registerSchema = z.object({
   body: z.object({
@@ -66,6 +67,9 @@ export const register = async (req, res) => {
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    // Send welcome email asynchronously
+    sendWelcomeEmail(user).catch(err => console.error('Welcome email error:', err));
 
     return res.status(201).json({
       success: true,

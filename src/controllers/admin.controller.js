@@ -7,6 +7,7 @@ import { Subscription } from '../models/Subscription.model.js';
 import { SeekerProfile } from '../models/SeekerProfile.model.js';
 import { ROLES } from '../constants/roles.js';
 import { COMPANY_STATUS, JOB_STATUS } from '../constants/statuses.js';
+import { sendCompanyApprovalEmail } from '../services/email.service.js';
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -212,6 +213,14 @@ export const approveCompany = async (req, res) => {
     company.status = COMPANY_STATUS.APPROVED;
     await company.save();
 
+    if (company.recruiterId?.email) {
+      sendCompanyApprovalEmail({
+        recruiter: company.recruiterId,
+        company,
+        isApproved: true,
+      }).catch(err => console.error('Company approval email error:', err));
+    }
+
     return res.status(200).json({
       success: true,
       message: `Company "${company.name}" approved and is now publicly visible!`,
@@ -241,6 +250,14 @@ export const rejectCompany = async (req, res) => {
     company.status = COMPANY_STATUS.REJECTED;
     await company.save();
 
+    if (company.recruiterId?.email) {
+      sendCompanyApprovalEmail({
+        recruiter: company.recruiterId,
+        company,
+        isApproved: false,
+      }).catch(err => console.error('Company rejection email error:', err));
+    }
+
     return res.status(200).json({
       success: true,
       message: `Company "${company.name}" has been rejected.`,
@@ -254,8 +271,6 @@ export const rejectCompany = async (req, res) => {
     });
   }
 };
-
-// --- Job Moderation & Analytics for Admin ---
 
 export const getAllJobsAdmin = async (req, res) => {
   try {
@@ -342,7 +357,6 @@ export const getPlatformStats = async (req, res) => {
     const activeJobs = await Job.countDocuments({ status: JOB_STATUS.ACTIVE });
     const totalApplications = await Application.countDocuments();
 
-    // Revenue calculation from completed payments
     const revenueAgg = await Payment.aggregate([
       { $match: { status: 'succeeded' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -397,7 +411,6 @@ export const getUserGrowthAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    // Fill missing days with 0s for smooth chart
     const result = [];
     const dateMap = {};
     userRegistrations.forEach(item => {
