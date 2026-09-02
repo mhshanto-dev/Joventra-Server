@@ -2,11 +2,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { ENV } from '../config/env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const uploadRoot = path.resolve(__dirname, '../../uploads');
+const uploadRoot = path.isAbsolute(ENV.UPLOAD_DIR)
+  ? ENV.UPLOAD_DIR
+  : path.resolve(__dirname, '../../', ENV.UPLOAD_DIR);
+
 const resumesDir = path.join(uploadRoot, 'resumes');
 const imagesDir = path.join(uploadRoot, 'images');
 

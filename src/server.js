@@ -28,18 +28,42 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Ensure upload directories exist
-const uploadDir = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Ensure upload directories exist based on ENV.UPLOAD_DIR
+const uploadDir = path.isAbsolute(ENV.UPLOAD_DIR)
+  ? ENV.UPLOAD_DIR
+  : path.resolve(__dirname, '..', ENV.UPLOAD_DIR);
+
+if (!process.env.VERCEL && !fs.existsSync(uploadDir)) {
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create upload dir:', err);
+  }
 }
 
 // Security & Middlewares
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+
+const allowedOrigins = Array.from(new Set([
+  ENV.CLIENT_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+].filter(Boolean)));
+
 app.use(cors({
-  origin: [ENV.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      ENV.NODE_ENV !== 'production'
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -82,8 +106,17 @@ app.use('/api/search', searchRoutes);
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'success',
-    message: 'HireLoop API is running healthy',
+    message: 'Joventra API is running healthy',
     timestamp: new Date().toISOString()
+  });
+});
+
+// Root endpoint for Vercel health inspection
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Joventra API Server is live',
+    health: '/api/health'
   });
 });
 
@@ -98,12 +131,12 @@ app.all('*', (req, res) => {
 // Centralized error handling middleware
 app.use(errorHandler);
 
-// App launcher
+// App launcher (only when running locally or traditional server, not Vercel serverless)
 const PORT = ENV.PORT;
-if (process.env.NODE_ENV !== 'test') {
+if (!process.env.VERCEL && ENV.NODE_ENV !== 'test') {
   connectDB();
   app.listen(PORT, () => {
-    console.log(`[HireLoop Server] Running in ${ENV.NODE_ENV} mode on port ${PORT}`);
+    console.log(`[Joventra Server] Running in ${ENV.NODE_ENV} mode on port ${PORT}`);
   });
 }
 
