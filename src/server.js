@@ -8,6 +8,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { ENV } from './config/env.js';
 import { connectDB } from './config/db.js';
+import authRoutes from './routes/auth.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,9 @@ if (ENV.NODE_ENV !== 'test') {
 
 // Static files for uploaded assets
 app.use('/uploads', express.static(uploadDir));
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
