@@ -158,6 +158,56 @@ export const toggleUserStatus = async (req, res) => {
   }
 };
 
+export const deleteUserAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own account.',
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Find all jobs posted by recruiter (if user is recruiter) to clean their applications
+    const jobs = await Job.find({ recruiterId: user._id }).select('_id');
+    const jobIds = jobs.map((j) => j._id);
+    if (jobIds.length > 0) {
+      await Application.deleteMany({ jobId: { $in: jobIds } });
+    }
+
+    // Cascade delete user data across models
+    await Promise.all([
+      SeekerProfile.deleteMany({ userId: user._id }),
+      Application.deleteMany({ seekerId: user._id }),
+      Job.deleteMany({ recruiterId: user._id }),
+      Company.deleteMany({ recruiterId: user._id }),
+      Subscription.deleteMany({ userId: user._id }),
+      Payment.deleteMany({ userId: user._id }),
+      User.findByIdAndDelete(id),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User account and associated records deleted successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete user account',
+      error: error.message,
+    });
+  }
+};
+
 export const getAllCompaniesAdmin = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 10 } = req.query;

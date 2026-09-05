@@ -3,6 +3,7 @@ import {
   getAllUsers,
   changeUserRole,
   toggleUserStatus,
+  deleteUserAdmin,
   getAllCompaniesAdmin,
   approveCompany,
   rejectCompany,
@@ -31,6 +32,7 @@ router.get('/analytics/payments', getRecentPayments);
 router.get('/users', getAllUsers);
 router.patch('/users/:id/role', changeUserRole);
 router.patch('/users/:id/status', toggleUserStatus);
+router.delete('/users/:id', deleteUserAdmin);
 
 // Company management
 router.get('/companies', getAllCompaniesAdmin);
