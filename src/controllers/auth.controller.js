@@ -1,4 +1,5 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
+import { OAuth2Client } from 'google-auth-library';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.model.js';
 import { SeekerProfile } from '../models/SeekerProfile.model.js';
@@ -300,5 +301,99 @@ export const getMe = async (req, res) => {
       message: 'Failed to retrieve user data',
       error: error.message,
     });
+  }
+};
+
+export const googleAuth = (req, res) => {
+  const oauth2Client = new OAuth2Client(
+    ENV.GOOGLE_CLIENT_ID,
+    ENV.GOOGLE_CLIENT_SECRET,
+    ENV.GOOGLE_CALLBACK_URL
+  );
+
+  const authorizeUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
+  });
+
+  res.redirect(authorizeUrl);
+};
+
+export const googleCallback = async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      return res.redirect(ENV.CLIENT_URL + '/login?error=auth_failed');
+    }
+
+    const oauth2Client = new OAuth2Client(
+      ENV.GOOGLE_CLIENT_ID,
+      ENV.GOOGLE_CLIENT_SECRET,
+      ENV.GOOGLE_CALLBACK_URL
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    const userInfoResponse = await oauth2Client.request({
+      url: 'https://www.googleapis.com/oauth2/v3/userinfo',
+    });
+
+    const { name, email, picture } = userInfoResponse.data;
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      user = await User.create({
+        name,
+        email: email.toLowerCase(),
+        password: await bcrypt.hash(Math.random().toString(36).slice(-8) + Date.now(), 10),
+        role: ROLES.SEEKER,
+        avatarUrl: picture,
+      });
+
+      await SeekerProfile.create({ userId: user._id });
+
+      await Subscription.create({
+        userId: user._id,
+        userRole: user.role,
+        planType: 'free',
+        status: 'active',
+      });
+
+      sendWelcomeEmail(user).catch(err => console.error('Welcome email error:', err));
+    } else {
+      if (!user.avatarUrl) {
+        user.avatarUrl = picture;
+        await user.save();
+      }
+    }
+
+    if (!user.isActive) {
+      return res.redirect(ENV.CLIENT_URL + '/login?error=suspended');
+    }
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    const salt = await bcrypt.genSalt(10);
+    user.refreshTokenHash = await bcrypt.hash(refreshToken, salt);
+    await user.save();
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: ENV.NODE_ENV === 'production',
+      sameSite: ENV.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect(ENV.CLIENT_URL + '/auth/callback?token=' + accessToken);
+
+  } catch (error) {
+    console.error('Google Callback Error:', error);
+    return res.redirect(ENV.CLIENT_URL + '/login?error=auth_failed');
   }
 };

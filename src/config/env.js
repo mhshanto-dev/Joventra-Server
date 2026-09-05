@@ -17,4 +17,9 @@ export const ENV = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@joventra.com',
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
 };

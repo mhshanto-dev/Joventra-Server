@@ -75,10 +75,22 @@ export const handleStripeWebhook = async (req, res) => {
   let event;
 
   try {
-    if (ENV.STRIPE_WEBHOOK_SECRET && !ENV.STRIPE_WEBHOOK_SECRET.includes('Mock')) {
-      event = stripe.webhooks.constructEvent(req.body, sig, ENV.STRIPE_WEBHOOK_SECRET);
+    // Only use Stripe signature verification if we have a real whsec_ secret
+    const webhookSecret = ENV.STRIPE_WEBHOOK_SECRET;
+    const isRealSecret = webhookSecret &&
+      webhookSecret.startsWith('whsec_') &&
+      !webhookSecret.includes('Mock') &&
+      !webhookSecret.startsWith('http');
+
+    if (isRealSecret) {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else {
-      event = req.body;
+      // Dev/misconfigured env: parse the raw body manually
+      try {
+        event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid webhook payload' });
+      }
     }
   } catch (err) {
     return res.status(400).send(`Webhook Error: ${err.message}`);

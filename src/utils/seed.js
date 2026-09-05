@@ -29,11 +29,10 @@ const seedDatabase = async () => {
     ]);
 
     console.log('[Seed] Creating Admin account...');
-    const adminPassword = await bcrypt.hash('admin123', 10);
     const admin = await User.create({
       name: 'System Admin',
-      email: 'admin@joventra.com',
-      password: 'admin123', // Will be hashed by pre-save hook
+      email: ENV.ADMIN_EMAIL,
+      password: ENV.ADMIN_PASSWORD, // Will be hashed by pre-save hook
       role: ROLES.ADMIN,
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     });
