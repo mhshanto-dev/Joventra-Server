@@ -199,7 +199,8 @@ export const uploadCompanyLogo = async (req, res) => {
       });
     }
 
-    const logoUrl = `/uploads/images/${req.file.filename}`;
+    // multer-storage-cloudinary provides the secure URL in req.file.path
+    const logoUrl = req.file.path;
     const company = await Company.findOneAndUpdate(
       { recruiterId: req.user._id },
       { logoUrl },

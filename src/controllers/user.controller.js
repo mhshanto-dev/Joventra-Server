@@ -119,7 +119,8 @@ export const uploadResume = async (req, res) => {
       });
     }
 
-    const resumeUrl = `/uploads/resumes/${req.file.filename}`;
+    // multer-storage-cloudinary provides the secure URL in req.file.path
+    const resumeUrl = req.file.path;
     const resumeOriginalName = req.file.originalname;
 
     let profile = await SeekerProfile.findOne({ userId: req.user._id });
@@ -157,7 +158,8 @@ export const uploadAvatar = async (req, res) => {
       });
     }
 
-    const avatarUrl = `/uploads/images/${req.file.filename}`;
+    // multer-storage-cloudinary provides the secure URL in req.file.path
+    const avatarUrl = req.file.path;
     await User.findByIdAndUpdate(req.user._id, { avatarUrl });
 
     return res.status(200).json({

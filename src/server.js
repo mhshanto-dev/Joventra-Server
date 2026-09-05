@@ -28,19 +28,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Ensure upload directories exist based on ENV.UPLOAD_DIR
-const uploadDir = path.isAbsolute(ENV.UPLOAD_DIR)
-  ? ENV.UPLOAD_DIR
-  : path.resolve(__dirname, '..', ENV.UPLOAD_DIR);
-
-if (!process.env.VERCEL && !fs.existsSync(uploadDir)) {
-  try {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  } catch (err) {
-    console.error('Failed to create upload dir:', err);
-  }
-}
-
 // Security & Middlewares
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -86,8 +73,7 @@ if (ENV.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// Static files for uploaded assets
-app.use('/uploads', express.static(uploadDir));
+// Static routes (if any)
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);

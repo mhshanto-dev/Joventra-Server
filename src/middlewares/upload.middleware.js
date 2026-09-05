@@ -1,38 +1,29 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { ENV } from '../config/env.js';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const uploadRoot = path.isAbsolute(ENV.UPLOAD_DIR)
-  ? ENV.UPLOAD_DIR
-  : path.resolve(__dirname, '../../', ENV.UPLOAD_DIR);
-
-const resumesDir = path.join(uploadRoot, 'resumes');
-const imagesDir = path.join(uploadRoot, 'images');
-
-[uploadRoot, resumesDir, imagesDir].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+// Configure Cloudinary from environment variables
+// The user MUST provide these in Vercel.
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.fieldname === 'resume') {
-      cb(null, resumesDir);
-    } else {
-      cb(null, imagesDir);
-    }
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const isResume = file.fieldname === 'resume';
+    // Store in appropriate folders
+    const folder = isResume ? 'joventra/resumes' : 'joventra/images';
+    // PDFs must be uploaded as 'raw' or 'auto' resource type in Cloudinary
+    const resource_type = isResume ? 'raw' : 'auto';
+
+    return {
+      folder,
+      resource_type,
+    };
   },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
-    cb(null, uniqueName);
-  }
 });
 
 const fileFilter = (req, file, cb) => {
